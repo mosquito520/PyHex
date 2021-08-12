@@ -126,6 +126,9 @@ class PyHex(Window):
         self.changed = False
         self.save_dialog = False
 
+        # EDID checksum mode
+        self.edidchksum = False
+
         self.max_lines = self.last_line - 3  # Max number of lines on the screen
         self.top_line = self.bottom_line = 0  # The lines at the top and the bottom of the screen
         self.edit_lines = self.encoded_lines = self.decoded_lines = self.offset_lines = []
@@ -247,6 +250,9 @@ class PyHex(Window):
         if self.key_pressed == curses.ascii.BS:
             self.clear_edit(self.content_pos_y, self.content_pos_x)
 
+        if self.key_pressed == curses.KEY_F1:
+            self.edidchksum = not(self.edidchksum)
+
     def update(self):
         # Calculating the coordinates of the title
         self.title_x = int((self.width // 2) - (len(self.title) // 2) - len(self.title) % 2)
@@ -281,6 +287,10 @@ class PyHex(Window):
             self.status_bar_text = "* "
         else:
             self.status_bar_text = ""
+
+        if self.edidchksum:
+            self.status_bar_text += " EDID checksum mode "
+            self.calculate_edid_checksum()
 
         if self.save_dialog:
             self.status_bar_text = " | Would you like to save your file? y,n,esc"
@@ -583,6 +593,35 @@ class PyHex(Window):
         self.changed = False
         self.save_dialog = False
         self.exit()
+
+    def calculate_edid_checksum(self):
+        bytesum = 0
+        bytecount = 0
+        for _y, line in enumerate(self.file.hex_array):
+            for _x, byte in enumerate(line):
+                bytecount += 1
+                if bytecount == 128 or bytecount == 256:
+                    checksum = 256 - (bytesum % 256)
+                    hex_byte = hex(checksum).replace("x", "").upper()
+                    if checksum >= 16:
+                        hex_byte = hex_byte.lstrip("0")
+
+                    self.edited_array[_y][_x] = hex_byte
+                    bytesum = 0
+                    break
+                else:
+                    edited_byte = self.edited_array[_y][_x]
+                    if edited_byte == "--":
+                        hex_byte = byte
+                        bytesum += int("0x" + hex_byte, base=16)
+                    elif edited_byte[:1] == "-":
+                        hex_byte = byte[:1] + edited_byte[1:]
+                        bytesum += int("0x" + hex_byte, base=16)
+                    elif edited_byte[1:] == "-":
+                        hex_byte = edited_byte[:1] + byte[1:]
+                        bytesum += int("0x" + hex_byte, base=16)
+                    else:
+                        bytesum += int("0x" + edited_byte, base=16)
 
 if __name__ == '__main__':
     app: Application = Application()
