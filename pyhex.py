@@ -245,7 +245,7 @@ class PyHex(Window):
                 char = chr(self.key_pressed)
                 self.edit(char, self.content_pos_y, self.content_pos_x)
 
-        if self.key_pressed == curses.ascii.BS:
+        if self.key_pressed == curses.ascii.BS or self.key_pressed == curses.KEY_BACKSPACE:
             self.clear_edit(self.content_pos_y, self.content_pos_x)
 
         if self.key_pressed == curses.KEY_UP:
