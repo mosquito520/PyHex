@@ -129,6 +129,9 @@ class PyHex(Window):
         # EDID checksum mode
         self.edidchksum = False
 
+        # Text edid mode
+        self.texteditmode = False
+
         self.max_lines = self.last_line - 3  # Max number of lines on the screen
         self.top_line = self.bottom_line = 0  # The lines at the top and the bottom of the screen
         self.edit_lines = self.encoded_lines = self.decoded_lines = self.offset_lines = []
@@ -230,8 +233,22 @@ class PyHex(Window):
                 self.save_dialog, self.status_bar_text = False, ""
             return
 
-        if self.key_pressed == curses.ascii.ESC or self.key_pressed == ord("q"):
-            self.exit()
+        if self.texteditmode:
+            if self.key_pressed == curses.ascii.ESC:
+                self.exit()
+            else:
+                char = chr(self.key_pressed)
+                self.edit_text(char, self.content_pos_y, self.content_pos_x)
+        else:
+            if self.key_pressed == curses.ascii.ESC or self.key_pressed == ord("q"):
+                self.exit()
+
+            if self.key_pressed in self.edit_keys:
+                char = chr(self.key_pressed)
+                self.edit(char, self.content_pos_y, self.content_pos_x)
+
+            if self.key_pressed == curses.ascii.BS:
+                self.clear_edit(self.content_pos_y, self.content_pos_x)
 
         if self.key_pressed == curses.KEY_UP:
             self.scroll_vertically(self.up_scroll)
@@ -243,15 +260,11 @@ class PyHex(Window):
         elif self.key_pressed == curses.KEY_RIGHT:
             self.scroll_horizontally(self.right_scroll)
 
-        if self.key_pressed in self.edit_keys:
-            char = chr(self.key_pressed)
-            self.edit(char, self.content_pos_y, self.content_pos_x)
-
-        if self.key_pressed == curses.ascii.BS:
-            self.clear_edit(self.content_pos_y, self.content_pos_x)
-
         if self.key_pressed == curses.KEY_F1:
             self.edidchksum = not(self.edidchksum)
+
+        if self.key_pressed == curses.KEY_F2:
+            self.texteditmode = not(self.texteditmode)
 
     def update(self):
         # Calculating the coordinates of the title
@@ -291,6 +304,9 @@ class PyHex(Window):
         if self.edidchksum:
             self.status_bar_text += " EDID checksum mode "
             self.calculate_edid_checksum()
+
+        if self.texteditmode:
+            self.status_bar_text += " Text edit mode "
 
         if self.save_dialog:
             self.status_bar_text = " | Would you like to save your file? y,n,esc"
@@ -543,6 +559,24 @@ class PyHex(Window):
                         self.changed = True
                         self.scroll_horizontally(self.right_scroll)
                         return
+
+    def edit_text(self, char, cursor_y, cursor_x):
+        """
+        Changes a byte
+        :param cursor_y: The y coordinate of the cursor in the array
+        :param cursor_x: The x coordinate of the cursor in the array
+        """
+        # Add the byte to the edited array
+        for _y, line in enumerate(self.edited_array):
+            for _x in range(0, len(line)):
+                if _y == cursor_y and _x == cursor_x:
+
+                    hex_byte = hex(ord(char)).replace("x", "").upper()
+                    if ord(char) >= 16:
+                        hex_byte = hex_byte.lstrip("0")
+
+                    self.edited_array[_y][_x] = hex_byte
+                    self.changed = True
 
     def clear_edit(self, cursor_y, cursor_x):
         """
