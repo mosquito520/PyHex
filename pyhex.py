@@ -233,22 +233,20 @@ class PyHex(Window):
                 self.save_dialog, self.status_bar_text = False, ""
             return
 
-        if self.texteditmode:
-            if self.key_pressed == curses.ascii.ESC:
-                self.exit()
-            else:
-                char = chr(self.key_pressed)
-                self.edit_text(char, self.content_pos_y, self.content_pos_x)
-        else:
-            if self.key_pressed == curses.ascii.ESC or self.key_pressed == ord("q"):
-                self.exit()
+        if self.key_pressed == curses.ascii.ESC:
+            self.exit()
 
+        if self.texteditmode:
+            if self.key_pressed in range(128):
+                char = chr(self.key_pressed)
+                self.edit(char, self.content_pos_y, self.content_pos_x)
+        else:
             if self.key_pressed in self.edit_keys:
                 char = chr(self.key_pressed)
                 self.edit(char, self.content_pos_y, self.content_pos_x)
 
-            if self.key_pressed == curses.ascii.BS:
-                self.clear_edit(self.content_pos_y, self.content_pos_x)
+        if self.key_pressed == curses.ascii.BS:
+            self.clear_edit(self.content_pos_y, self.content_pos_x)
 
         if self.key_pressed == curses.KEY_UP:
             self.scroll_vertically(self.up_scroll)
@@ -539,44 +537,40 @@ class PyHex(Window):
         :param cursor_y: The y coordinate of the cursor in the array
         :param cursor_x: The x coordinate of the cursor in the array
         """
-        # If the character is a letter, make it upper
-        if char.isalpha():
-            char = char.upper()
 
-        # Add the byte to the edited array
-        for _y, line in enumerate(self.edited_array):
-            for _x in range(0, len(line)):
-                if _y == cursor_y and _x == cursor_x:
-                    if self.edited_position == 0:
-                        self.edited_array[_y][_x] = str(char) + self.edited_array[_y][_x][1:]
-                        self.edited_position = 1
-                        self.changed = True
-                        return
-
-                    if self.edited_position == 1:
-                        self.edited_array[_y][_x] = self.edited_array[_y][_x][:1] + str(char)
-                        self.edited_position = 0
+        if self.texteditmode:
+            # Add the byte to the edited array
+            for _y, line in enumerate(self.edited_array):
+                for _x in range(0, len(line)):
+                    if _y == cursor_y and _x == cursor_x:
+                        hex_byte = hex(ord(char)).replace("x", "").upper()
+                        if ord(char) >= 16:
+                            hex_byte = hex_byte.lstrip("0")
+                        self.edited_array[_y][_x] = hex_byte
                         self.changed = True
                         self.scroll_horizontally(self.right_scroll)
                         return
+        else:
+            # If the character is a letter, make it upper
+            if char.isalpha():
+                char = char.upper()
 
-    def edit_text(self, char, cursor_y, cursor_x):
-        """
-        Changes a byte
-        :param cursor_y: The y coordinate of the cursor in the array
-        :param cursor_x: The x coordinate of the cursor in the array
-        """
-        # Add the byte to the edited array
-        for _y, line in enumerate(self.edited_array):
-            for _x in range(0, len(line)):
-                if _y == cursor_y and _x == cursor_x:
+            # Add the byte to the edited array
+            for _y, line in enumerate(self.edited_array):
+                for _x in range(0, len(line)):
+                    if _y == cursor_y and _x == cursor_x:
+                        if self.edited_position == 0:
+                            self.edited_array[_y][_x] = str(char) + self.edited_array[_y][_x][1:]
+                            self.edited_position = 1
+                            self.changed = True
+                            return
 
-                    hex_byte = hex(ord(char)).replace("x", "").upper()
-                    if ord(char) >= 16:
-                        hex_byte = hex_byte.lstrip("0")
-
-                    self.edited_array[_y][_x] = hex_byte
-                    self.changed = True
+                        if self.edited_position == 1:
+                            self.edited_array[_y][_x] = self.edited_array[_y][_x][:1] + str(char)
+                            self.edited_position = 0
+                            self.changed = True
+                            self.scroll_horizontally(self.right_scroll)
+                            return
 
     def clear_edit(self, cursor_y, cursor_x):
         """
@@ -631,6 +625,7 @@ class PyHex(Window):
     def calculate_edid_checksum(self):
         bytesum = 0
         bytecount = 0
+        self.changed = True
         for _y, line in enumerate(self.file.hex_array):
             for _x, byte in enumerate(line):
                 bytecount += 1
